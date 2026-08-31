@@ -201,35 +201,28 @@ async function start() {
 
 async function downloadVideo(url, title) {
   if (!url) { alert('缺少视频地址'); return; }
-  log('⏬ 通过云函数代理下载视频…');
+  const fname = (title || 'douyin').replace(/[\\/:"*?<>|]/g, '_').slice(0, 80) + '.mp4';
+  log('⏬ 尝试下载视频…');
+  // 先试 fetch：若视频 CDN 允许跨域（返回 Access-Control-Allow-Origin），即可强制存盘并自定义文件名。
+  // 抖音/快手等 CDN 大多不放 CORS 头，fetch 会被浏览器拦截，此时落到下方「直接打开直链」方案。
   try {
-    const res = await fetch(CONFIG.API_BASE, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'video', videoUrl: url, title })
-    });
-    if (!res.ok) {
-      let msg = 'HTTP ' + res.status;
-      try { const j = JSON.parse(await res.text()); if (j.msg) msg = j.msg; } catch (e) {}
-      throw new Error(msg);
+    const res = await fetch(url);
+    if (res.ok) {
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
+      log('✔ 已开始下载视频文件（' + fname + '）');
+      return;
     }
-    // 超出网关大小限制等情况会返回 JSON（HTTP 200，{ok:false}），需识别出来
-    const ct = res.headers.get('content-type') || '';
-    if (ct.includes('application/json')) {
-      const j = JSON.parse(await res.text());
-      throw new Error(j.msg || '返回的不是视频（JSON）');
-    }
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = (title || 'douyin').replace(/[\\/:"*?<>|]/g, '_').slice(0, 80) + '.mp4';
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(a.href);
-    log('✔ 已开始下载视频文件');
-  } catch (e) {
-    log('✖ 代理下载失败：' + (e.message || e));
-    log('   改用：长按上方视频预览选「存储到相册」，或用“打开原始链接”');
-  }
+  } catch (e) { /* CORS 拦截，继续走直链打开 */ }
+  // 跨域无法强制下载：直接打开视频直链（新标签页），再由浏览器原生能力保存
+  // （手机长按视频 / 电脑右键「另存为」，与长按预览等价）
+  log('⚠ 该视频跨域限制，浏览器无法一键强制存盘，已为你打开视频直链');
+  window.open(url, '_blank', 'noopener');
+  log('   电脑：右键视频选「另存为」；手机：长按上方预览选「存储到相册」，或用“打开原始链接”');
 }
 
 function copyText() {
