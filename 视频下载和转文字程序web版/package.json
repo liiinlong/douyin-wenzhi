@@ -1,7 +1,0 @@
-{
-  "name": "dyasr-cloudfunction",
-  "version": "1.0.0",
-  "description": "抖音视频转文字 - 腾讯云函数后端（解析/下载/提音频/腾讯云ASR）",
-  "main": "index.js",
-  "dependencies": {}
-}
